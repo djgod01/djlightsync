@@ -26,7 +26,13 @@ export class OutputManager {
     this.config = config;
     this.djLinkManager = djLinkManager;
   }
-
+  /**
+ * Vrátí instanci TC výstupu pro přímou manipulaci
+ */
+public getTcOutput(): TCOutput | null {
+  return this.tcOutput;
+}
+  
   public initOutputs(): void {
     const appConfig = this.config.getConfig();
 

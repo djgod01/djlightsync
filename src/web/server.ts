@@ -100,13 +100,15 @@ export class WebServer {
       this.logger.info(`Nové webové připojení: ${socket.id}`);
 
       // Poslat inicializační data klientovi
-      socket.emit('init', {
-        config: this.config.getConfig(),
-        devices: this.djLinkManager.getDevices(),
-        master: this.djLinkManager.getCurrentMaster(),
-        lastBeat: this.djLinkManager.getLastBeatInfo(),
-        outputs: this.outputManager.getOutputStatus()
-      });
+// V metodě setupSocketIO() při odesílání inicializačních dat:
+socket.emit('init', {
+  config: this.config.getConfig(),
+  devices: this.djLinkManager.getDevices(),
+  master: this.djLinkManager.getCurrentMaster(),
+  lastBeat: this.djLinkManager.getLastBeatInfo(),
+  outputs: this.outputManager.getOutputStatus(),
+  tcVolume: this.outputManager.getTcOutput()?.getVolume() || 0.5 // Výchozí hodnota 0.5
+});
 
       // Zpracování požadavků na aktualizaci konfigurace
       socket.on('updateConfig', (newConfig) => {
@@ -119,6 +121,22 @@ export class WebServer {
           socket.emit('configUpdated', { success: false, error: 'Chyba při aktualizaci konfigurace' });
         }
       });
+	  // Zpracování požadavků na změnu hlasitosti TC výstupu
+socket.on('setTcVolume', (volume) => {
+  try {
+    // Získejte referenci na OutputManager a nastavte hlasitost
+    const tcOutput = this.outputManager.getTcOutput();
+    if (tcOutput) {
+      tcOutput.setVolume(volume);
+      socket.emit('tcVolumeUpdated', { success: true, volume });
+    } else {
+      socket.emit('tcVolumeUpdated', { success: false, error: 'TC výstup není k dispozici' });
+    }
+  } catch (error) {
+    this.logger.error(`Chyba při nastavení hlasitosti TC výstupu: ${error}`);
+    socket.emit('tcVolumeUpdated', { success: false, error: 'Chyba při nastavení hlasitosti' });
+  }
+});
 
       // Zpracování odpojení klienta
       socket.on('disconnect', () => {

@@ -9,9 +9,9 @@
   },
   "outputs": {
     "midi": {
-      "enabled": false,
+      "enabled": true,
       "settings": {
-        "useRtpMidi": false,
+        "useRtpMidi": true,
         "device": "",
         "channel": 1,
         "rtpSessionName": "DJ Sync Server",
@@ -34,8 +34,8 @@
     "tc": {
       "enabled": true,
       "settings": {
-        "device": "Výchozí audio výstup",
-        "format": "mtc"
+        "device": "Zvuková karta",
+        "format": "smpte-drop"
       }
     }
   }

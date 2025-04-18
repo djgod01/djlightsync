@@ -39,6 +39,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Tlačítka pro správu logů
     const refreshLogs = document.getElementById('refresh-logs');
     const clearLogs = document.getElementById('clear-logs');
+	// TC volume slider
+const tcVolumeSlider = document.getElementById('tc-volume');
+const tcVolumeValue = document.getElementById('tc-volume-value');
+
+if (tcVolumeSlider && tcVolumeValue) {
+  // Inicializace hodnoty
+  tcVolumeSlider.addEventListener('input', () => {
+    const value = tcVolumeSlider.value;
+    tcVolumeValue.textContent = value + '%';
+  });
+  
+  // Odeslání hodnoty na server při uvolnění
+  tcVolumeSlider.addEventListener('change', () => {
+    const volume = parseInt(tcVolumeSlider.value, 10) / 100; // Převod na 0-1
+    socket.emit('setTcVolume', volume);
+  });
+}
     
     // Zobrazení/skrytí detailních nastavení pro výstupy
     midiEnabled.addEventListener('change', () => {
@@ -92,13 +109,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Inicializační data od serveru
-    socket.on('init', (data) => {
-        updateConfig(data.config);
-        updateDeviceList(data.devices, data.master);
-        updateBeatInfo(data.lastBeat);
-        updateOutputStatus(data.outputs);
-    });
-    
+ // A následně přidejte zpracování této hodnoty v app.js:
+socket.on('init', (data) => {
+  updateConfig(data.config);
+  updateDeviceList(data.devices, data.master);
+  updateBeatInfo(data.lastBeat);
+  updateOutputStatus(data.outputs);
+  
+  // Nastavení hodnoty TC volume slideru
+  if (data.tcVolume !== undefined && tcVolumeSlider && tcVolumeValue) {
+    const volumePercent = Math.round(data.tcVolume * 100);
+    tcVolumeSlider.value = volumePercent.toString();
+    tcVolumeValue.textContent = volumePercent + '%';
+  }
+});   
     // Aktualizace konfigurace
     function updateConfig(config) {
         // Síťová nastavení
