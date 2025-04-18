@@ -19,8 +19,8 @@ Synchronizační server pro DJ techniku využívající protokol Pioneer Pro DJ 
 ## Instalace
 
 1. Naklonujte tento repozitář:
-git clone https://github.com/djgod01/djlightsync
-cd djlightsync 
+git clone https://github.com/username/dj-sync-server.git
+cd dj-sync-server
 
 2. Nainstalujte závislosti:
 npm install
