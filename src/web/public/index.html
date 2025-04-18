@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DJ Sync Server</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DJ Sync Server</h1>
+            <div class="status-container">
+                <div class="status-label">Stav:</div>
+                <div id="server-status" class="status">Připojování...</div>
+            </div>
+        </header>
+
+        <main>
+            <div class="tabs">
+                <button class="tab-button active" data-tab="status">Status</button>
+                <button class="tab-button" data-tab="network">Síť</button>
+                <button class="tab-button" data-tab="outputs">Výstupy</button>
+                <button class="tab-button" data-tab="settings">Nastavení</button>
+                <button class="tab-button" data-tab="logs">Logy</button>
+            </div>
+
+            <div id="status" class="tab-content active">
+                <h2>Status</h2>
+                <div class="status-overview">
+                    <div class="status-box">
+                        <h3>Nalezená zařízení</h3>
+                        <div id="device-list">
+                            <p>Hledání zařízení...</p>
+                        </div>
+                    </div>
+                    <div class="status-box">
+                        <h3>Master zařízení</h3>
+                        <div id="master-device">
+                            <p>Čekání na master...</p>
+                        </div>
+                    </div>
+                    <div class="status-box">
+                        <h3>BPM</h3>
+                        <div id="current-bpm">---</div>
+                    </div>
+                    <div class="status-box">
+                        <h3>Beat</h3>
+                        <div id="current-beat">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="network" class="tab-content">
+                <h2>Síťová nastavení</h2>
+                <div class="form-group">
+                    <label for="network-interface">Síťové rozhraní:</label>
+                    <select id="network-interface"></select>
+                </div>
+                <div class="form-group">
+                    <label for="player-number">Číslo zařízení:</label>
+                    <input type="number" id="player-number" min="1" max="6" value="5">
+                </div>
+                <div class="form-group">
+                    <label for="device-name">Název zařízení:</label>
+                    <input type="text" id="device-name" value="DJ Sync Server">
+                </div>
+                <button id="network-save" class="save-button">Uložit nastavení</button>
+            </div>
+
+            <div id="outputs" class="tab-content">
+                <h2>Výstupní protokoly</h2>
+                
+                <div class="output-config">
+                    <h3>MIDI</h3>
+                    <div class="form-group">
+                        <label class="switch">
+                            <input type="checkbox" id="midi-enabled">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="switch-label">Povolit MIDI výstup</span>
+                    </div>
+                    <div class="midi-settings" style="display:none;">
+                        <div class="form-group">
+                            <label class="switch">
+                                <input type="checkbox" id="midi-use-rtp">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="switch-label">Použít RTP MIDI (síťový MIDI)</span>
+                        </div>
+                        
+                        <div class="local-midi-settings">
+                            <div class="form-group">
+                                <label for="midi-device">MIDI zařízení:</label>
+                                <select id="midi-device"></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="midi-channel">MIDI kanál:</label>
+                                <input type="number" id="midi-channel" min="1" max="16" value="1">
+                            </div>
+                        </div>
+                        
+                        <div class="rtp-midi-settings" style="display:none;">
+                            <div class="form-group">
+                                <label for="rtp-session-name">Název RTP session:</label>
+                                <input type="text" id="rtp-session-name" value="DJ Sync Server">
+                            </div>
+                            <div class="form-group">
+                                <label for="rtp-port">Port:</label>
+                                <input type="number" id="rtp-port" min="1024" max="65535" value="5004">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="output-config">
+                    <h3>LTC (Linear Timecode)</h3>
+                    <div class="form-group">
+                        <label class="switch">
+                            <input type="checkbox" id="ltc-enabled">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="switch-label">Povolit LTC výstup</span>
+                    </div>
+                    <div class="ltc-settings" style="display:none;">
+                        <div class="form-group">
+                            <label for="ltc-device">Audio zařízení:</label>
+                            <select id="ltc-device"></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ltc-framerate">Framerate:</label>
+                            <select id="ltc-framerate">
+                                <option value="24">24 fps</option>
+                                <option value="25">25 fps</option>
+                                <option value="30" selected>30 fps</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="output-config">
+                    <h3>Ableton Link (Simulace)</h3>
+                    <div class="form-group">
+                        <label class="switch">
+                            <input type="checkbox" id="ableton-enabled">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="switch-label">Povolit Ableton Link (simulovaný)</span>
+                    </div>
+                    <div class="ableton-settings" style="display:none;">
+                        <div class="form-group">
+                            <label for="ableton-quantum">Quantum (počet dob v taktu):</label>
+                            <input type="number" id="ableton-quantum" min="1" max="8" value="4">
+                        </div>
+                        <p class="info-text"><small>Poznámka: Toto je simulovaná implementace Ableton Link.</small></p>
+                    </div>
+                </div>
+                
+                <div class="output-config">
+                    <h3>TC (Timecode)</h3>
+                    <div class="form-group">
+                        <label class="switch">
+                            <input type="checkbox" id="tc-enabled">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="switch-label">Povolit TC výstup</span>
+                    </div>
+                    <div class="tc-settings" style="display:none;">
+                        <div class="form-group">
+                            <label for="tc-device">Audio zařízení:</label>
+                            <select id="tc-device"></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="tc-format">Formát:</label>
+                            <select id="tc-format">
+                                <option value="smpte-30">SMPTE 30fps</option>
+                                <option value="smpte-25">SMPTE 25fps (EU/PAL)</option>
+                                <option value="smpte-24">SMPTE 24fps (Film)</option>
+                                <option value="smpte-drop">SMPTE 29.97fps Drop-Frame (NTSC)</option>
+                                <option value="mtc">MIDI Time Code (MTC)</option>
+                                <option value="ltc">Linear Time Code (LTC)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="outputs-save" class="save-button">Uložit nastavení</button>
+            </div>
+
+            <div id="settings" class="tab-content">
+                <h2>Obecná nastavení</h2>
+                <div class="form-group">
+                    <label for="server-port">Port webového serveru:</label>
+                    <input type="number" id="server-port" min="1024" max="65535" value="8080">
+                </div>
+                <button id="settings-save" class="save-button">Uložit nastavení</button>
+            </div>
+
+            <div id="logs" class="tab-content">
+                <h2>Logy</h2>
+                <div class="log-controls">
+                    <button id="refresh-logs">Obnovit</button>
+                    <button id="clear-logs">Vyčistit</button>
+                </div>
+                <div class="log-container">
+                    <pre id="log-content"></pre>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>DJ Sync Server v1.0.0 &copy; 2025</p>
+        </footer>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
