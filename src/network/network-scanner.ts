@@ -30,13 +30,13 @@ export class NetworkScanner {
 
     for (const [name, ifaceInfos] of Object.entries(networkInterfaces)) {
       if (ifaceInfos) {
-        for (const info of ifaceInfos) {
+        for (const info of ifaceInfos as os.NetworkInterfaceInfo[]) {
           // Zajímají nás pouze IPv4 adresy a ne interní (loopback) rozhraní
           if (info.family === 'IPv4' && !info.internal) {
             interfaces.push({
               name,
               address: info.address,
-              netmask: info.netmask,
+              netmask: info.netmask || '',
               family: info.family,
               internal: info.internal
             });

@@ -1,6 +1,6 @@
 {
   "djlink": {
-    "interface": "",
+    "interface": "172.16.2.194",
     "playerNumber": 5,
     "deviceName": "DJ Sync Server"
   },
@@ -9,9 +9,9 @@
   },
   "outputs": {
     "midi": {
-      "enabled": true,
+      "enabled": false,
       "settings": {
-        "useRtpMidi": true,
+        "useRtpMidi": false,
         "device": "",
         "channel": 1,
         "rtpSessionName": "DJ Sync Server",
@@ -21,7 +21,7 @@
     "ltc": {
       "enabled": false,
       "settings": {
-        "device": "",
+        "device": "Výchozí audio výstup",
         "framerate": 30
       }
     },
@@ -32,10 +32,10 @@
       }
     },
     "tc": {
-      "enabled": true,
+      "enabled": false,
       "settings": {
-        "device": "Zvuková karta",
-        "format": "smpte-drop"
+        "device": "Výchozí audio výstup",
+        "format": "ltc"
       }
     }
   }

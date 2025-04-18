@@ -1,10 +1,10 @@
 /*
  * DJ Sync Server - server.ts
  * Webový server pro konfigurační rozhraní
- * v.0.1 - 2025-04-17
+ * v.0.1 - 2025-04-18
  */
 
-import express from 'express';
+import express, { Request, Response } from 'express';
 import * as http from 'http';
 import * as path from 'path';
 import * as socketIo from 'socket.io';
@@ -12,7 +12,7 @@ import * as fs from 'fs-extra';
 import { Logger } from '../logger/logger';
 import { Config } from '../config/config';
 import { NetworkScanner } from '../network/network-scanner';
-import { DJLinkManager } from '../djlink/djlink-manager';
+import { DJLinkManager, DJDevice, BeatInfo } from '../djlink/djlink-manager';
 import { OutputManager } from '../outputs/output-manager';
 
 export class WebServer {
@@ -53,19 +53,23 @@ export class WebServer {
 
   private setupExpress(): void {
     // Nastavení statických souborů
-
-    this.app.use(express.static(path.join(__dirname, '../../src/web/public')));
-	this.app.use(express.json());
-	
+    // __dirname v TypeScriptu není přímo dostupný, takže používáme path.resolve
+    const publicPath = path.resolve(__dirname, '../../src/web/public');
+    this.app.use(express.static(publicPath));
+    this.app.use(express.json());
 
     // API endpoints
-    this.app.get('/api/config', (req, res) => {
+    this.app.get('/api/config', (req: Request, res: Response) => {
       res.json(this.config.getConfig());
     });
 
-    this.app.post('/api/config', (req, res) => {
+    this.app.post('/api/config', (req: Request, res: Response) => {
       try {
         this.config.updateConfig(req.body);
+        
+        // Po aktualizaci konfigurace provedeme reload výstupů
+        this.outputManager.reloadOutputs();
+        
         res.json({ success: true });
       } catch (error) {
         this.logger.error(`Chyba při aktualizaci konfigurace: ${error}`);
@@ -73,17 +77,17 @@ export class WebServer {
       }
     });
 
-    this.app.get('/api/interfaces', (req, res) => {
+    this.app.get('/api/interfaces', (req: Request, res: Response) => {
       const interfaces = this.networkScanner.scanInterfaces();
       res.json(interfaces);
     });
 
-    this.app.get('/api/devices', (req, res) => {
+    this.app.get('/api/devices', (req: Request, res: Response) => {
       const devices = this.djLinkManager.getDevices();
       res.json(devices);
     });
 
-    this.app.get('/api/status', (req, res) => {
+    this.app.get('/api/status', (req: Request, res: Response) => {
       const status = {
         devices: this.djLinkManager.getDevices(),
         master: this.djLinkManager.getCurrentMaster(),
@@ -96,24 +100,31 @@ export class WebServer {
 
   private setupSocketIO(): void {
     // Socket.IO pro realtime aktualizace
-    this.io.on('connection', (socket) => {
+    this.io.on('connection', (socket: socketIo.Socket) => {
       this.logger.info(`Nové webové připojení: ${socket.id}`);
 
       // Poslat inicializační data klientovi
-// V metodě setupSocketIO() při odesílání inicializačních dat:
-socket.emit('init', {
-  config: this.config.getConfig(),
-  devices: this.djLinkManager.getDevices(),
-  master: this.djLinkManager.getCurrentMaster(),
-  lastBeat: this.djLinkManager.getLastBeatInfo(),
-  outputs: this.outputManager.getOutputStatus(),
-  tcVolume: this.outputManager.getTcOutput()?.getVolume() || 0.5 // Výchozí hodnota 0.5
-});
+      // Získáme aktuální hlasitost TC výstupu, pokud je k dispozici
+      const tcOutput = this.outputManager.getTcOutput();
+      const tcVolume = tcOutput && typeof tcOutput.getVolume === 'function' ? tcOutput.getVolume() : 0.5;
+      
+      socket.emit('init', {
+        config: this.config.getConfig(),
+        devices: this.djLinkManager.getDevices(),
+        master: this.djLinkManager.getCurrentMaster(),
+        lastBeat: this.djLinkManager.getLastBeatInfo(),
+        outputs: this.outputManager.getOutputStatus(),
+        tcVolume: tcVolume
+      });
 
       // Zpracování požadavků na aktualizaci konfigurace
-      socket.on('updateConfig', (newConfig) => {
+      socket.on('updateConfig', (newConfig: any) => {
         try {
           this.config.updateConfig(newConfig);
+          
+          // Reload výstupů po aktualizaci konfigurace
+          this.outputManager.reloadOutputs();
+          
           socket.emit('configUpdated', { success: true });
           this.io.emit('config', this.config.getConfig());
         } catch (error) {
@@ -121,22 +132,23 @@ socket.emit('init', {
           socket.emit('configUpdated', { success: false, error: 'Chyba při aktualizaci konfigurace' });
         }
       });
-	  // Zpracování požadavků na změnu hlasitosti TC výstupu
-socket.on('setTcVolume', (volume) => {
-  try {
-    // Získejte referenci na OutputManager a nastavte hlasitost
-    const tcOutput = this.outputManager.getTcOutput();
-    if (tcOutput) {
-      tcOutput.setVolume(volume);
-      socket.emit('tcVolumeUpdated', { success: true, volume });
-    } else {
-      socket.emit('tcVolumeUpdated', { success: false, error: 'TC výstup není k dispozici' });
-    }
-  } catch (error) {
-    this.logger.error(`Chyba při nastavení hlasitosti TC výstupu: ${error}`);
-    socket.emit('tcVolumeUpdated', { success: false, error: 'Chyba při nastavení hlasitosti' });
-  }
-});
+      
+      // Zpracování požadavků na změnu hlasitosti TC výstupu
+      socket.on('setTcVolume', (volume: number) => {
+        try {
+          // Získáme referenci na TC výstup z OutputManageru
+          const tcOutput = this.outputManager.getTcOutput();
+          if (tcOutput && typeof tcOutput.setVolume === 'function') {
+            tcOutput.setVolume(volume);
+            socket.emit('tcVolumeUpdated', { success: true, volume });
+          } else {
+            socket.emit('tcVolumeUpdated', { success: false, error: 'TC výstup není k dispozici' });
+          }
+        } catch (error) {
+          this.logger.error(`Chyba při nastavení hlasitosti TC výstupu: ${error}`);
+          socket.emit('tcVolumeUpdated', { success: false, error: 'Chyba při nastavení hlasitosti' });
+        }
+      });
 
       // Zpracování odpojení klienta
       socket.on('disconnect', () => {
@@ -145,19 +157,19 @@ socket.on('setTcVolume', (volume) => {
     });
 
     // Přesměrování událostí z DJ Link Manageru na Socket.IO
-    this.djLinkManager.on('deviceConnected', (device) => {
+    this.djLinkManager.on('deviceConnected', (device: DJDevice) => {
       this.io.emit('deviceConnected', device);
     });
 
-    this.djLinkManager.on('deviceDisconnected', (device) => {
+    this.djLinkManager.on('deviceDisconnected', (device: DJDevice) => {
       this.io.emit('deviceDisconnected', device);
     });
 
-    this.djLinkManager.on('masterChanged', (deviceId) => {
+    this.djLinkManager.on('masterChanged', (deviceId: number) => {
       this.io.emit('masterChanged', deviceId);
     });
 
-    this.djLinkManager.on('beat', (beatInfo) => {
+    this.djLinkManager.on('beat', (beatInfo: BeatInfo) => {
       this.io.emit('beat', beatInfo);
     });
   }
@@ -169,7 +181,7 @@ socket.on('setTcVolume', (volume) => {
     const currentLogFile = path.join(logDir, `dj-sync-${dateStr}.log`);
 
     // API endpoint pro získání obsahu aktuálního logu
-    this.app.get('/api/logs', (req, res) => {
+    this.app.get('/api/logs', (req: Request, res: Response) => {
       try {
         if (fs.existsSync(currentLogFile)) {
           const logContent = fs.readFileSync(currentLogFile, 'utf8');
@@ -184,7 +196,7 @@ socket.on('setTcVolume', (volume) => {
     });
 
     // API endpoint pro vymazání obsahu aktuálního logu
-    this.app.post('/api/logs/clear', (req, res) => {
+    this.app.post('/api/logs/clear', (req: Request, res: Response) => {
       try {
         if (fs.existsSync(currentLogFile)) {
           fs.writeFileSync(currentLogFile, `Log vyčištěn v ${new Date().toISOString()}\n`);
@@ -202,10 +214,11 @@ socket.on('setTcVolume', (volume) => {
 
   private setupMidiAPI(): void {
     // API endpoint pro získání dostupných MIDI zařízení
-    this.app.get('/api/midi-devices', (req, res) => {
+    this.app.get('/api/midi-devices', (req: Request, res: Response) => {
       try {
-        // Importujeme MIDI output třídu
-        const { MidiOutput } = require('../outputs/midi-output');
+        // Importujeme MIDI output třídu pomocí require
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const MidiOutput = require('../outputs/midi-output').MidiOutput;
         
         // Získáme seznam zařízení
         const devices = MidiOutput.getMidiDevices();
@@ -219,7 +232,7 @@ socket.on('setTcVolume', (volume) => {
 
   private setupAudioAPI(): void {
     // API endpoint pro získání dostupných audio zařízení
-    this.app.get('/api/audio-devices', (req, res) => {
+    this.app.get('/api/audio-devices', (req: Request, res: Response) => {
       try {
         // Zde by měl být kód pro získání dostupných audio zařízení
         // Pro zjednodušení vracíme jen několik příkladů

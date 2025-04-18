@@ -107,6 +107,18 @@ export class TCOutput {
     this.startContinuousAudioGeneration();
   }
 
+  // Metoda pro nastavení hlasitosti TC výstupu (0.0 - 1.0)
+  public setVolume(volume: number): void {
+    // Zajistíme, že hodnota je v rozsahu 0-1
+    this.volume = Math.min(1.0, Math.max(0.0, volume));
+    this.logger.info(`TC výstup - hlasitost nastavena na: ${this.volume.toFixed(2)} (${Math.round(this.volume * 100)}%)`);
+  }
+
+  // Metoda pro získání aktuální hlasitosti TC výstupu
+  public getVolume(): number {
+    return this.volume;
+  }
+
   private initAudio(): void {
     if (!Speaker || !pcmUtils) {
       this.logger.warn('Speaker nebo pcm-util nejsou dostupné. Audio výstup bude pouze simulovaný.');

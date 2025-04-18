@@ -112,12 +112,12 @@ export class DJLinkManager extends EventEmitter {
   private setupAnnounceSocket(): void {
     this.announceSocket = dgram.createSocket('udp4');
     
-    this.announceSocket.on('error', (err) => {
+    this.announceSocket.on('error', (err: Error) => {
       this.logger.error(`Chyba announce socketu: ${err}`);
       this.announceSocket?.close();
     });
     
-    this.announceSocket.on('message', (msg, rinfo) => {
+    this.announceSocket.on('message', (msg: Buffer, rinfo: dgram.RemoteInfo) => {
       this.handleAnnouncePacket(msg, rinfo);
     });
     
@@ -130,12 +130,12 @@ export class DJLinkManager extends EventEmitter {
   private setupStatusSocket(): void {
     this.statusSocket = dgram.createSocket('udp4');
     
-    this.statusSocket.on('error', (err) => {
+    this.statusSocket.on('error', (err: Error) => {
       this.logger.error(`Chyba status socketu: ${err}`);
       this.statusSocket?.close();
     });
     
-    this.statusSocket.on('message', (msg, rinfo) => {
+    this.statusSocket.on('message', (msg: Buffer, rinfo: dgram.RemoteInfo) => {
       this.handleStatusPacket(msg, rinfo);
     });
     
@@ -147,12 +147,12 @@ export class DJLinkManager extends EventEmitter {
   private setupBeatSocket(): void {
     this.beatSocket = dgram.createSocket('udp4');
     
-    this.beatSocket.on('error', (err) => {
+    this.beatSocket.on('error', (err: Error) => {
       this.logger.error(`Chyba beat socketu: ${err}`);
       this.beatSocket?.close();
     });
     
-    this.beatSocket.on('message', (msg, rinfo) => {
+    this.beatSocket.on('message', (msg: Buffer, rinfo: dgram.RemoteInfo) => {
       this.handleBeatPacket(msg, rinfo);
     });
     
