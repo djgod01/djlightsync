@@ -1,12 +1,11 @@
 /*
  * DJ Sync Server - jzz-midi-output.ts
  * MIDI výstupní protokol s podporou RTP MIDI a JZZ
- * v.0.3 - 2025-04-20
+ * v.0.2 - 2025-04-22
  */
 
 import { Logger } from '../logger/logger';
 import { BeatInfo } from '../djlink/djlink-manager';
-import { Writable } from 'stream';
 
 // Import potřebných knihoven
 let JZZ: any = null;
@@ -69,16 +68,14 @@ export class MidiOutput {
       }
       
       // Určíme, který port otevřít
-      let selectedDevice: { id: number; name: string } | null = null;
+      let selectedDevice = null;
       
       // Pokud je specifikováno konkrétní zařízení, hledáme ho podle názvu
       if (this.settings.device) {
-        const foundDevice = outputs.find(d => d.name.includes(this.settings.device));
+        selectedDevice = outputs.find(d => d.name.includes(this.settings.device));
         
-        if (!foundDevice) {
+        if (!selectedDevice) {
           this.logger.warn(`MIDI zařízení "${this.settings.device}" nebylo nalezeno. Otevírám výchozí port.`);
-        } else {
-          selectedDevice = foundDevice;
         }
       }
       
@@ -114,38 +111,43 @@ export class MidiOutput {
     const port = this.settings.rtpPort || 5004;
     const networkDeviceId = this.settings.networkDeviceId || '';
 
-    // Pokud je specifikováno síťové zařízení, zkusíme k němu připojit
-    if (networkDeviceId) {
-      this.logger.info(`Připojuji se k síťovému MIDI zařízení s ID: ${networkDeviceId}`);
-      
-      // Tento kód by měl být implementován pomocí MIDI network discovery služby
-      // V reálné implementaci by zde byl kód pro načtení zařízení z MidiNetworkDiscovery
-      // a připojení k němu.
-      //
-      // Pro nyní jen logujeme tuto skutečnost, ale neměníme standardní chování.
-      this.logger.info('Připojení k síťovým zařízením je nyní ve vývoji.');
-    }
-
     try {
-      // Metoda 1: Přes RtpMidi.manager.createSession (preferovaná metoda podle testu)
-      this.rtpMidiSession = RtpMidi.manager.createSession({
-        name: sessionName,
-        bonjourName: sessionName,
-        port: port
-      });
-      
-      this.logger.info(`RTP MIDI session "${sessionName}" připravena na portu ${port}`);
-      this.usesRtpMidi = true;
-      
-      // Nastavení event handlerů
-      this.rtpMidiSession.on('error', (err: any) => {
-        this.logger.error(`Chyba RTP MIDI session: ${err}`);
-      });
-      
-      // Logování připojení
-      this.rtpMidiSession.on('connection', (conn: any) => {
-        this.logger.info(`Nové RTP MIDI připojení: ${conn.name || 'neznámé'}`);
-      });
+        // Upravený způsob inicializace - explicitně povolíme Bonjour discovery
+        this.rtpMidiSession = RtpMidi.manager.createSession({
+            name: sessionName,
+            bonjourName: sessionName,
+            port: port,
+            enableBroadcast: true,
+            localName: sessionName,
+            // Přidáme IP adresu serveru, pokud je k dispozici
+            localNets: this.settings.interface ? [this.settings.interface] : undefined
+        });
+        
+        this.logger.info(`RTP MIDI session "${sessionName}" připravena na portu ${port}`);
+        this.usesRtpMidi = true;
+        
+        // Explicitně spustíme discovery
+        if (RtpMidi.manager.startDiscovery) {
+            RtpMidi.manager.startDiscovery();
+            this.logger.info('RTP MIDI discovery explicitně spuštěno');
+        }
+        
+        // Přidáme event listener pro sledování nalezených zařízení
+        if (RtpMidi.manager.on) {
+            RtpMidi.manager.on('deviceFound', (device: any) => {
+                this.logger.info(`RTP MIDI zařízení nalezeno: ${device.name || 'neznámé'} (${device.address || 'neznámá adresa'})`);
+            });
+        }
+        
+        // Nastavení event handlerů
+        this.rtpMidiSession.on('error', (err: any) => {
+            this.logger.error(`Chyba RTP MIDI session: ${err}`);
+        });
+        
+        // Logování připojení
+        this.rtpMidiSession.on('connection', (conn: any) => {
+            this.logger.info(`Nové RTP MIDI připojení: ${conn.name || 'neznámé'}`);
+        });
     } catch (error) {
       this.logger.error(`Chyba při inicializaci RTP MIDI výstupu: ${error}`);
       
@@ -155,7 +157,9 @@ export class MidiOutput {
         this.rtpMidiSession = new RtpMidi.Session({
           name: sessionName,
           bonjourName: sessionName,
-          port: port
+          port: port,
+          enableBroadcast: true,
+          localName: sessionName
         });
         
         this.logger.info(`RTP MIDI session "${sessionName}" připravena na portu ${port} (alternativní způsob)`);
@@ -164,6 +168,11 @@ export class MidiOutput {
         // Nastavení event handlerů
         this.rtpMidiSession.on('error', (err: any) => {
           this.logger.error(`Chyba RTP MIDI session: ${err}`);
+        });
+        
+        // Logování připojení
+        this.rtpMidiSession.on('connection', (conn: any) => {
+          this.logger.info(`Nové RTP MIDI připojení: ${conn.name || 'neznámé'}`);
         });
       } catch (backupError) {
         this.logger.error(`Záložní metoda také selhala: ${backupError}`);

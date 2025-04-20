@@ -1,13 +1,15 @@
 /*
  * DJ Sync Server - install.js
  * Instalační skript pro závislosti
- * v.0.1 - 2025-04-20
+ * v.0.2 - 2025-04-22
  */
 
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const dgram = require('dgram');
+const net = require('net');
 
 // Funkce pro zobrazení barevného textu v konzoli
 function colorText(text, colorCode) {
@@ -65,6 +67,64 @@ function shouldSkipDependency(dependency) {
   }
   
   return false;
+}
+
+// Funkce pro kontrolu portů
+async function checkRequiredPorts() {
+  log('Kontrola požadovaných portů...', 'info');
+  
+  const ports = [
+    { port: 5004, protocol: 'UDP', description: 'RTP MIDI komunikace' },
+    { port: 5004, protocol: 'TCP', description: 'RTP MIDI komunikace' },
+    { port: 5353, protocol: 'UDP', description: 'mDNS/Bonjour discovery' }
+  ];
+  
+  for (const portInfo of ports) {
+    try {
+      const socket = portInfo.protocol === 'UDP' 
+        ? dgram.createSocket('udp4')
+        : net.createServer();
+      
+      await new Promise((resolve, reject) => {
+        socket.on('error', (err) => {
+          if (err.code === 'EADDRINUSE') {
+            log(`Port ${portInfo.port} (${portInfo.protocol}) je používán jiným procesem!`, 'warning');
+            log(`Tento port je potřebný pro: ${portInfo.description}`, 'info');
+            log('Může to způsobit problémy s detekací zařízení.', 'warning');
+          } else {
+            log(`Chyba při kontrole portu ${portInfo.port}: ${err.message}`, 'error');
+          }
+          socket.close ? socket.close() : socket.close();
+          resolve();
+        });
+        
+        if (portInfo.protocol === 'UDP') {
+          socket.bind(portInfo.port, () => {
+            log(`Port ${portInfo.port} (${portInfo.protocol}) je dostupný ✓`, 'success');
+            socket.close();
+            resolve();
+          });
+        } else {
+          socket.listen(portInfo.port, () => {
+            log(`Port ${portInfo.port} (${portInfo.protocol}) je dostupný ✓`, 'success');
+            socket.close();
+            resolve();
+          });
+        }
+        
+        // Timeout
+        setTimeout(() => {
+          try {
+            socket.close ? socket.close() : socket.close();
+          } catch (e) {}
+          resolve();
+        }, 3000);
+      });
+      
+    } catch (error) {
+      log(`Chyba při kontrole portu ${portInfo.port}: ${error.message}`, 'error');
+    }
+  }
 }
 
 // Hlavní instalační funkce
@@ -141,6 +201,9 @@ async function install() {
         log(`Složka ${dir} byla vytvořena`, 'success');
       }
     }
+
+    // Kontrola požadovaných portů
+    await checkRequiredPorts();
     
     log('Instalace dokončena!', 'success');
     log('Pro kompilaci a spuštění aplikace použijte příkaz: npm run build-and-run', 'info');

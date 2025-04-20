@@ -1,7 +1,7 @@
 /*
  * DJ Sync Server - server.ts
  * Webový server pro konfigurační rozhraní
- * v.0.1 - 2025-04-18
+ * v.0.2 - 2025-04-22
  */
 
 import express, { Request, Response } from 'express';
@@ -151,6 +151,30 @@ export class WebServer {
       // Zpracování požadavků na aktualizaci konfigurace
       socket.on('updateConfig', (newConfig: any) => {
         try {
+          // Kontrola, zda se mění síťové rozhraní
+          const oldConfig = this.config.getConfig();
+          const interfaceChanged = newConfig.djlink && 
+                                  newConfig.djlink.interface && 
+                                  oldConfig.djlink.interface !== newConfig.djlink.interface;
+          
+          // Pokud se mění rozhraní a je povoleno RTP MIDI, aktualizujeme příslušné nastavení
+          if (interfaceChanged && oldConfig.outputs.midi.enabled && oldConfig.outputs.midi.settings.useRtpMidi) {
+            // Přidáme síťové rozhraní do MIDI nastavení
+            if (!newConfig.outputs) {
+              newConfig.outputs = { ...oldConfig.outputs };
+            }
+            if (!newConfig.outputs.midi) {
+              newConfig.outputs.midi = { ...oldConfig.outputs.midi };
+            }
+            if (!newConfig.outputs.midi.settings) {
+              newConfig.outputs.midi.settings = { ...oldConfig.outputs.midi.settings };
+            }
+            
+            // Nastavíme síťové rozhraní pro RTP MIDI
+            newConfig.outputs.midi.settings.interface = newConfig.djlink.interface;
+            this.logger.info(`Aktualizováno síťové rozhraní pro RTP MIDI na: ${newConfig.djlink.interface}`);
+          }
+          
           this.config.updateConfig(newConfig);
           
           // Reload výstupů po aktualizaci konfigurace
