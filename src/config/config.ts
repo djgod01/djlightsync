@@ -55,7 +55,11 @@ export class Config {
           enabled: false,
           settings: {
             device: '',
-            channel: 1
+            channel: 1,
+            useRtpMidi: false,
+            rtpSessionName: 'DJ Sync Server',
+            rtpPort: 5004,
+            networkDeviceId: ''
           }
         },
         ltc: {

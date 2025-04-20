@@ -7,7 +7,7 @@
 import { Logger } from '../logger/logger';
 import { Config } from '../config/config';
 import { DJLinkManager, BeatInfo } from '../djlink/djlink-manager';
-import { MidiOutput } from './midi-output';
+import { MidiOutput } from './jzz-midi-output';
 import { LTCOutput } from './ltc-output';
 import { AbletonLinkOutput } from './ableton-link-output';
 import { TCOutput } from './tc-output';

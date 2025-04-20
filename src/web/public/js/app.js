@@ -39,23 +39,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Tlačítka pro správu logů
     const refreshLogs = document.getElementById('refresh-logs');
     const clearLogs = document.getElementById('clear-logs');
-	// TC volume slider
-const tcVolumeSlider = document.getElementById('tc-volume');
-const tcVolumeValue = document.getElementById('tc-volume-value');
+    
+    // TC volume slider
+    const tcVolumeSlider = document.getElementById('tc-volume');
+    const tcVolumeValue = document.getElementById('tc-volume-value');
 
-if (tcVolumeSlider && tcVolumeValue) {
-  // Inicializace hodnoty
-  tcVolumeSlider.addEventListener('input', () => {
-    const value = tcVolumeSlider.value;
-    tcVolumeValue.textContent = value + '%';
-  });
-  
-  // Odeslání hodnoty na server při uvolnění
-  tcVolumeSlider.addEventListener('change', () => {
-    const volume = parseInt(tcVolumeSlider.value, 10) / 100; // Převod na 0-1
-    socket.emit('setTcVolume', volume);
-  });
-}
+    if (tcVolumeSlider && tcVolumeValue) {
+      // Inicializace hodnoty
+      tcVolumeSlider.addEventListener('input', () => {
+        const value = tcVolumeSlider.value;
+        tcVolumeValue.textContent = value + '%';
+      });
+      
+      // Odeslání hodnoty na server při uvolnění
+      tcVolumeSlider.addEventListener('change', () => {
+        const volume = parseInt(tcVolumeSlider.value, 10) / 100; // Převod na 0-1
+        socket.emit('setTcVolume', volume);
+      });
+    }
     
     // Zobrazení/skrytí detailních nastavení pro výstupy
     midiEnabled.addEventListener('change', () => {
@@ -109,20 +110,25 @@ if (tcVolumeSlider && tcVolumeValue) {
     });
     
     // Inicializační data od serveru
- // A následně přidejte zpracování této hodnoty v app.js:
-socket.on('init', (data) => {
-  updateConfig(data.config);
-  updateDeviceList(data.devices, data.master);
-  updateBeatInfo(data.lastBeat);
-  updateOutputStatus(data.outputs);
-  
-  // Nastavení hodnoty TC volume slideru
-  if (data.tcVolume !== undefined && tcVolumeSlider && tcVolumeValue) {
-    const volumePercent = Math.round(data.tcVolume * 100);
-    tcVolumeSlider.value = volumePercent.toString();
-    tcVolumeValue.textContent = volumePercent + '%';
-  }
-});   
+    socket.on('init', (data) => {
+      updateConfig(data.config);
+      updateDeviceList(data.devices, data.master);
+      updateBeatInfo(data.lastBeat);
+      updateOutputStatus(data.outputs);
+      
+      // Nastavení hodnoty TC volume slideru
+      if (data.tcVolume !== undefined && tcVolumeSlider && tcVolumeValue) {
+        const volumePercent = Math.round(data.tcVolume * 100);
+        tcVolumeSlider.value = volumePercent.toString();
+        tcVolumeValue.textContent = volumePercent + '%';
+      }
+      
+      // Aktualizace síťových MIDI zařízení, pokud jsou dostupná
+      if (data.networkMidiDevices && window.networkMidiManager) {
+        window.networkMidiManager.updateNetworkMidiDevicesList(data.networkMidiDevices);
+      }
+    });
+    
     // Aktualizace konfigurace
     function updateConfig(config) {
         // Síťová nastavení
@@ -393,7 +399,8 @@ socket.on('init', (data) => {
                         device: document.getElementById('midi-device').value,
                         channel: parseInt(document.getElementById('midi-channel').value, 10),
                         rtpSessionName: document.getElementById('rtp-session-name').value,
-                        rtpPort: parseInt(document.getElementById('rtp-port').value, 10)
+                        rtpPort: parseInt(document.getElementById('rtp-port').value, 10),
+                        networkDeviceId: document.getElementById('network-midi-devices').value
                     }
                 },
                 ltc: {

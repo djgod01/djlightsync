@@ -247,6 +247,22 @@ input:checked + .slider:before {
   vertical-align: middle;
 }
 
+.btn-small {
+  padding: 3px 10px;
+  background-color: var(--secondary-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: 10px;
+  transition: background-color 0.3s ease;
+}
+
+.btn-small:hover {
+  background-color: var(--primary-color);
+}
+
 /* Device list */
 .device-item {
   padding: 10px;
@@ -289,7 +305,7 @@ footer {
   color: #777;
   font-size: 14px;
 }
-/*
+
 .volume-control {
   display: flex;
   align-items: center;
@@ -331,7 +347,7 @@ footer {
   text-align: right;
   font-weight: bold;
 }
-*/
+
 /* Responsive */
 @media (max-width: 768px) {
   .tabs {

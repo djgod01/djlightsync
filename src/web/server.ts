@@ -14,6 +14,7 @@ import { Config } from '../config/config';
 import { NetworkScanner } from '../network/network-scanner';
 import { DJLinkManager, DJDevice, BeatInfo } from '../djlink/djlink-manager';
 import { OutputManager } from '../outputs/output-manager';
+import { MidiNetworkDiscovery, NetworkMidiDevice } from '../outputs/midi-network-discovery';
 
 export class WebServer {
   private logger: Logger;
@@ -21,6 +22,7 @@ export class WebServer {
   private networkScanner: NetworkScanner;
   private djLinkManager: DJLinkManager;
   private outputManager: OutputManager;
+  private midiNetworkDiscovery: MidiNetworkDiscovery;
   private app: express.Application;
   private server: http.Server;
   private io: socketIo.Server;
@@ -31,13 +33,15 @@ export class WebServer {
     config: Config,
     networkScanner: NetworkScanner,
     djLinkManager: DJLinkManager,
-    outputManager: OutputManager
+    outputManager: OutputManager,
+    midiNetworkDiscovery: MidiNetworkDiscovery
   ) {
     this.logger = logger;
     this.config = config;
     this.networkScanner = networkScanner;
     this.djLinkManager = djLinkManager;
     this.outputManager = outputManager;
+    this.midiNetworkDiscovery = midiNetworkDiscovery;
 
     this.port = this.config.getConfig().server.port;
     this.app = express();
@@ -96,6 +100,32 @@ export class WebServer {
       };
       res.json(status);
     });
+    
+    // Nové endpointy pro síťová MIDI zařízení
+    this.app.get('/api/network-midi-devices', (req: Request, res: Response) => {
+      const devices = this.midiNetworkDiscovery.getNetworkMidiDevices();
+      res.json(devices);
+    });
+    
+    this.app.post('/api/network-midi-discovery/start', (req: Request, res: Response) => {
+      try {
+        this.midiNetworkDiscovery.startDiscovery();
+        res.json({ success: true });
+      } catch (error) {
+        this.logger.error(`Chyba při spouštění network MIDI discovery: ${error}`);
+        res.status(500).json({ success: false, error: 'Chyba při spouštění vyhledávání' });
+      }
+    });
+    
+    this.app.post('/api/network-midi-discovery/stop', (req: Request, res: Response) => {
+      try {
+        this.midiNetworkDiscovery.stopDiscovery();
+        res.json({ success: true });
+      } catch (error) {
+        this.logger.error(`Chyba při zastavování network MIDI discovery: ${error}`);
+        res.status(500).json({ success: false, error: 'Chyba při zastavování vyhledávání' });
+      }
+    });
   }
 
   private setupSocketIO(): void {
@@ -114,7 +144,8 @@ export class WebServer {
         master: this.djLinkManager.getCurrentMaster(),
         lastBeat: this.djLinkManager.getLastBeatInfo(),
         outputs: this.outputManager.getOutputStatus(),
-        tcVolume: tcVolume
+        tcVolume: tcVolume,
+        networkMidiDevices: this.midiNetworkDiscovery.getNetworkMidiDevices()
       });
 
       // Zpracování požadavků na aktualizaci konfigurace
@@ -149,11 +180,37 @@ export class WebServer {
           socket.emit('tcVolumeUpdated', { success: false, error: 'Chyba při nastavení hlasitosti' });
         }
       });
+      
+      // Zpracování požadavků na start/stop network MIDI discovery
+      socket.on('startNetworkMidiDiscovery', () => {
+        try {
+          this.midiNetworkDiscovery.startDiscovery();
+          socket.emit('networkMidiDiscoveryStatus', { active: true });
+        } catch (error) {
+          this.logger.error(`Chyba při spouštění network MIDI discovery: ${error}`);
+          socket.emit('networkMidiDiscoveryStatus', { active: false, error: 'Chyba při spouštění vyhledávání' });
+        }
+      });
+      
+      socket.on('stopNetworkMidiDiscovery', () => {
+        try {
+          this.midiNetworkDiscovery.stopDiscovery();
+          socket.emit('networkMidiDiscoveryStatus', { active: false });
+        } catch (error) {
+          this.logger.error(`Chyba při zastavování network MIDI discovery: ${error}`);
+          socket.emit('networkMidiDiscoveryStatus', { active: false, error: 'Chyba při zastavování vyhledávání' });
+        }
+      });
 
       // Zpracování odpojení klienta
       socket.on('disconnect', () => {
         this.logger.info(`Webové připojení odpojeno: ${socket.id}`);
       });
+    });
+    
+    // Přidání posluchače na změny v síťových MIDI zařízeních
+    this.midiNetworkDiscovery.addListener((devices: NetworkMidiDevice[]) => {
+      this.io.emit('networkMidiDevicesUpdated', devices);
     });
 
     // Přesměrování událostí z DJ Link Manageru na Socket.IO
@@ -218,7 +275,7 @@ export class WebServer {
       try {
         // Importujeme MIDI output třídu pomocí require
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const MidiOutput = require('../outputs/midi-output').MidiOutput;
+        const MidiOutput = require('../outputs/jzz-midi-output').MidiOutput;
         
         // Získáme seznam zařízení
         const devices = MidiOutput.getMidiDevices();

@@ -7,8 +7,10 @@
 import { Logger } from './logger/logger';
 import { Config } from './config/config';
 import { NetworkScanner } from './network/network-scanner';
+import { MDNSDiscovery } from './network/mdns-discovery';
 import { DJLinkManager } from './djlink/djlink-manager';
 import { OutputManager } from './outputs/output-manager';
+import { MidiNetworkDiscovery } from './outputs/midi-network-discovery';
 import { WebServer } from './web/server';
 
 // Inicializace loggeru
@@ -25,6 +27,15 @@ const networkScanner = new NetworkScanner(logger);
 const interfaces = networkScanner.scanInterfaces();
 logger.info(`Nalezeno ${interfaces.length} síťových rozhraní`);
 
+// Inicializace mDNS discovery
+const mdnsDiscovery = new MDNSDiscovery(logger);
+logger.info('mDNS discovery služba inicializována');
+
+// Inicializace MIDI network discovery
+const midiNetworkDiscovery = new MidiNetworkDiscovery(logger);
+midiNetworkDiscovery.startDiscovery();
+logger.info('MIDI network discovery služba spuštěna');
+
 // Inicializace DJ Link manageru
 const djLinkManager = new DJLinkManager(interfaces[0], logger, config);
 djLinkManager.start();
@@ -34,7 +45,7 @@ const outputManager = new OutputManager(logger, config, djLinkManager);
 outputManager.initOutputs();
 
 // Spuštění webového serveru
-const webServer = new WebServer(logger, config, networkScanner, djLinkManager, outputManager);
+const webServer = new WebServer(logger, config, networkScanner, djLinkManager, outputManager, midiNetworkDiscovery);
 webServer.start();
 
 // Zachycení ukončovacích signálů
