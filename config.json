@@ -34,8 +34,8 @@
     "tc": {
       "enabled": false,
       "settings": {
-        "device": "Výchozí audio výstup",
-        "format": "ltc"
+        "device": "Zvuková karta",
+        "format": "smpte-24"
       }
     }
   }
