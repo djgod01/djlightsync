@@ -9,13 +9,14 @@
   },
   "outputs": {
     "midi": {
-      "enabled": false,
+      "enabled": true,
       "settings": {
-        "useRtpMidi": false,
+        "useRtpMidi": true,
         "device": "",
         "channel": 1,
         "rtpSessionName": "DJ Sync Server",
-        "rtpPort": 5004
+        "rtpPort": 5004,
+        "networkDeviceId": ""
       }
     },
     "ltc": {

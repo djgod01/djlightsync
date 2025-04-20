@@ -1,11 +1,12 @@
 /*
  * DJ Sync Server - jzz-midi-output.ts
  * MIDI výstupní protokol s podporou RTP MIDI a JZZ
- * v.0.1 - 2025-04-20
+ * v.0.3 - 2025-04-20
  */
 
 import { Logger } from '../logger/logger';
 import { BeatInfo } from '../djlink/djlink-manager';
+import { Writable } from 'stream';
 
 // Import potřebných knihoven
 let JZZ: any = null;
@@ -68,14 +69,16 @@ export class MidiOutput {
       }
       
       // Určíme, který port otevřít
-      let selectedDevice = null;
+      let selectedDevice: { id: number; name: string } | null = null;
       
       // Pokud je specifikováno konkrétní zařízení, hledáme ho podle názvu
       if (this.settings.device) {
-        selectedDevice = outputs.find(d => d.name.includes(this.settings.device));
+        const foundDevice = outputs.find(d => d.name.includes(this.settings.device));
         
-        if (!selectedDevice) {
+        if (!foundDevice) {
           this.logger.warn(`MIDI zařízení "${this.settings.device}" nebylo nalezeno. Otevírám výchozí port.`);
+        } else {
+          selectedDevice = foundDevice;
         }
       }
       
